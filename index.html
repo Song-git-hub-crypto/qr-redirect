@@ -1,1 +1,65 @@
-qer
+```html
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>이동 중...</title>
+</head>
+<body style="font-family:sans-serif;text-align:center;padding-top:40vh;color:#555;">
+<p id="msg">이동 중입니다...</p>
+<script>
+// ⚠️ 여기를 2단계에서 복사한 "웹에 게시" CSV 주소로 교체하세요
+const CSV_URL = "여기에_게시된_CSV_주소_붙여넣기";
+
+function parseCsv(text) {
+  const rows = [];
+  let row = [], field = '', inQuotes = false;
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i];
+    if (inQuotes) {
+      if (c === '"') {
+        if (text[i + 1] === '"') { field += '"'; i++; }
+        else { inQuotes = false; }
+      } else field += c;
+    } else {
+      if (c === '"') inQuotes = true;
+      else if (c === ',') { row.push(field); field = ''; }
+      else if (c === '\n' || c === '\r') {
+        if (c === '\r' && text[i + 1] === '\n') i++;
+        row.push(field); field = '';
+        rows.push(row); row = [];
+      } else field += c;
+    }
+  }
+  if (field.length || row.length) { row.push(field); rows.push(row); }
+  return rows;
+}
+
+const params = new URLSearchParams(location.search);
+const id = parseInt(params.get('id'), 10);
+const msg = document.getElementById('msg');
+
+if (!id || id < 2) {
+  msg.textContent = '잘못된 접근입니다.';
+} else {
+  fetch(CSV_URL + (CSV_URL.includes('?') ? '&' : '?') + 'cb=' + Date.now())
+    .then(r => r.text())
+    .then(text => {
+      const rows = parseCsv(text);
+      const dataRow = rows[id - 1]; // rows[0]=헤더(1행) 이므로 id행은 rows[id-1]
+      const dest = dataRow && dataRow[2] ? dataRow[2].trim() : ''; // C열(목적지 URL)
+      if (dest) {
+        location.replace(dest);
+      } else {
+        msg.textContent = '목적지 URL이 아직 설정되지 않았습니다.';
+      }
+    })
+    .catch(() => {
+      msg.textContent = '연결 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.';
+    });
+}
+</script>
+</body>
+</html>
+```
