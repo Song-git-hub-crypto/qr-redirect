@@ -9,7 +9,8 @@
 <p id="msg">이동 중입니다...</p>
 <script>
 // ⚠️ 여기를 2단계에서 복사한 "웹에 게시" CSV 주소로 교체하세요
-const CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSc6NHqgbvbXimo0lH1zWQpoz0Krbraq6OoEHqsr8iZiG24AYd-gZthQd7DR3OcqIFzAk1y_Z-wrZTG/pub?gid=0&single=true&output=csv";
+const CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSc6NHqgbvbXimo0lH1zWQpoz0Krbraq6OoEHqsr8iZiG24AYd-gZthQd7DR3OcqIFzAk1y_Z-wrZTG/pub?gid=0&single=true&output=csv
+";
 
 function parseCsv(text) {
   const rows = [];
@@ -36,18 +37,25 @@ function parseCsv(text) {
 }
 
 const params = new URLSearchParams(location.search);
-const id = parseInt(params.get('id'), 10);
+const id = params.get('id'); // 더 이상 행 번호가 아니라 영구 고유ID(문자열)입니다
 const msg = document.getElementById('msg');
 
-if (!id || id < 2) {
+if (!id) {
   msg.textContent = '잘못된 접근입니다.';
 } else {
   fetch(CSV_URL + (CSV_URL.includes('?') ? '&' : '?') + 'cb=' + Date.now())
     .then(r => r.text())
     .then(text => {
       const rows = parseCsv(text);
-      const dataRow = rows[id - 1]; // rows[0]=헤더(1행) 이므로 id행은 rows[id-1]
-      const dest = dataRow && dataRow[2] ? dataRow[2].trim() : ''; // C열(목적지 URL)
+      let dest = '';
+      // 행 위치가 아니라 E열(고유ID) 값을 직접 찾아서 매칭합니다
+      for (let r = 1; r < rows.length; r++) { // rows[0] = 헤더(1행)
+        const rowId = rows[r][4] ? rows[r][4].trim() : ''; // E열
+        if (rowId && rowId === id) {
+          dest = rows[r][2] ? rows[r][2].trim() : ''; // C열(목적지 URL)
+          break;
+        }
+      }
       if (dest) {
         location.replace(dest);
       } else {
