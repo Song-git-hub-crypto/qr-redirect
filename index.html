@@ -9,8 +9,16 @@
 <p id="msg">이동 중입니다...</p>
 <script>
 // ⚠️ 여기를 2단계에서 복사한 "웹에 게시" CSV 주소로 교체하세요
-const CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSc6NHqgbvbXimo0lH1zWQpoz0Krbraq6OoEHqsr8iZiG24AYd-gZthQd7DR3OcqIFzAk1y_Z-wrZTG/pub?gid=0&single=true&output=csv
-";
+const CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSc6NHqgbvbXimo0lH1zWQpoz0Krbraq6OoEHqsr8iZiG24AYd-gZthQd7DR3OcqIFzAk1y_Z-wrZTG/pub?gid=0&single=true&output=csv";
+
+function showError(text) {
+  document.getElementById('msg').textContent = text;
+}
+
+// 스크립트 어디서든 예상 못한 오류가 나면 화면에 그대로 표시합니다 (디버깅용)
+window.onerror = function (message) {
+  showError('스크립트 오류: ' + message);
+};
 
 function parseCsv(text) {
   const rows = [];
@@ -38,32 +46,36 @@ function parseCsv(text) {
 
 const params = new URLSearchParams(location.search);
 const id = params.get('id'); // 더 이상 행 번호가 아니라 영구 고유ID(문자열)입니다
-const msg = document.getElementById('msg');
 
 if (!id) {
-  msg.textContent = '잘못된 접근입니다.';
+  showError('잘못된 접근입니다. (id 파라미터 없음)');
+} else if (CSV_URL.indexOf('http') !== 0) {
+  showError('설정 오류: CSV_URL이 올바르게 입력되지 않았습니다. index.html의 CSV_URL 값을 다시 확인하세요.');
 } else {
   fetch(CSV_URL + (CSV_URL.includes('?') ? '&' : '?') + 'cb=' + Date.now())
-    .then(r => r.text())
-    .then(text => {
+    .then(function (r) {
+      if (!r.ok) throw new Error('CSV를 불러오지 못했습니다 (HTTP ' + r.status + '). 시트의 "웹에 게시" 설정을 확인하세요.');
+      return r.text();
+    })
+    .then(function (text) {
       const rows = parseCsv(text);
       let dest = '';
       // 행 위치가 아니라 E열(고유ID) 값을 직접 찾아서 매칭합니다
       for (let r = 1; r < rows.length; r++) { // rows[0] = 헤더(1행)
-        const rowId = rows[r][4] ? rows[r][4].trim() : ''; // E열
+        const rowId = rows[r][4] ? String(rows[r][4]).trim() : ''; // E열
         if (rowId && rowId === id) {
-          dest = rows[r][2] ? rows[r][2].trim() : ''; // C열(목적지 URL)
+          dest = rows[r][2] ? String(rows[r][2]).trim() : ''; // C열(목적지 URL)
           break;
         }
       }
       if (dest) {
         location.replace(dest);
       } else {
-        msg.textContent = '목적지 URL이 아직 설정되지 않았습니다.';
+        showError('목적지 URL이 아직 설정되지 않았습니다. (id=' + id + ')');
       }
     })
-    .catch(() => {
-      msg.textContent = '연결 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.';
+    .catch(function (err) {
+      showError('연결 중 오류: ' + err.message);
     });
 }
 </script>
