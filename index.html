@@ -1,32 +1,47 @@
 <!DOCTYPE html>
 <html lang="ko">
+
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>이동 중...</title>
+  <meta charset="UTF-8">
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1"
+  >
+  <title>이동 중...</title>
 </head>
 
-<body style="font-family:sans-serif;text-align:center;padding-top:40vh;color:#555;">
+<body
+  style="
+    font-family:sans-serif;
+    text-align:center;
+    padding-top:40vh;
+    color:#555;
+  "
+>
 
 <p id="msg">이동 중입니다...</p>
 
+<script src="sheets.js"></script>
+
 <script>
 
-const CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSc6NHqgbvbXimo0lH1zWQpoz0Krbraq6OoEHqsr8iZiG24AYd-gZthQd7DR3OcqIFzAk1y_Z-wrZTG/pub?gid=0&single=true&output=csv";
-
 function showError(text) {
-  document.getElementById('msg').textContent = text;
+  document
+    .getElementById("msg")
+    .textContent = text;
 }
 
-window.onerror = function(message) {
-  showError('스크립트 오류: ' + message);
-};
+
+// =====================================================
+// CSV 파싱
+// =====================================================
 
 function parseCsv(text) {
 
   const rows = [];
+
   let row = [];
-  let field = '';
+  let field = "";
   let inQuotes = false;
 
   for (let i = 0; i < text.length; i++) {
@@ -51,20 +66,28 @@ function parseCsv(text) {
     } else {
 
       if (c === '"') {
+
         inQuotes = true;
 
-      } else if (c === ',') {
+      } else if (c === ",") {
+
         row.push(field);
-        field = '';
+        field = "";
 
-      } else if (c === '\n' || c === '\r') {
+      } else if (
+        c === "\n" ||
+        c === "\r"
+      ) {
 
-        if (c === '\r' && text[i + 1] === '\n') {
+        if (
+          c === "\r" &&
+          text[i + 1] === "\n"
+        ) {
           i++;
         }
 
         row.push(field);
-        field = '';
+        field = "";
         rows.push(row);
         row = [];
 
@@ -74,7 +97,10 @@ function parseCsv(text) {
     }
   }
 
-  if (field.length || row.length) {
+  if (
+    field.length ||
+    row.length
+  ) {
     row.push(field);
     rows.push(row);
   }
@@ -82,84 +108,147 @@ function parseCsv(text) {
   return rows;
 }
 
-const params = new URLSearchParams(location.search);
-const id = params.get('id');
 
-if (!id) {
+// =====================================================
+// URL 파라미터 읽기
+// =====================================================
 
-  showError('잘못된 접근입니다. (id 파라미터 없음)');
+const params =
+  new URLSearchParams(
+    location.search
+  );
 
-} else if (CSV_URL.indexOf('http') !== 0) {
+const sheetCode =
+  params.get("s");
+
+const id =
+  params.get("id");
+
+
+// =====================================================
+// 기본 검사
+// =====================================================
+
+if (!sheetCode) {
 
   showError(
-    '설정 오류: CSV_URL이 올바르게 입력되지 않았습니다.'
+    "잘못된 접근입니다. (s 파라미터 없음)"
+  );
+
+} else if (!id) {
+
+  showError(
+    "잘못된 접근입니다. (id 파라미터 없음)"
+  );
+
+} else if (
+  typeof SHEETS === "undefined"
+) {
+
+  showError(
+    "시트 설정 파일을 불러오지 못했습니다."
+  );
+
+} else if (
+  !SHEETS[sheetCode]
+) {
+
+  showError(
+    "등록되지 않은 시트입니다: " +
+    sheetCode
   );
 
 } else {
 
+  const csvUrl =
+    SHEETS[sheetCode];
+
   fetch(
-    CSV_URL +
-    (CSV_URL.includes('?') ? '&' : '?') +
-    'cb=' + Date.now()
+    csvUrl +
+    (
+      csvUrl.includes("?")
+        ? "&"
+        : "?"
+    ) +
+    "cb=" +
+    Date.now()
   )
 
-  .then(function(r) {
+  .then(function(response) {
 
-    if (!r.ok) {
+    if (!response.ok) {
       throw new Error(
-        'CSV를 불러오지 못했습니다 (HTTP ' +
-        r.status + ').'
+        "CSV HTTP 오류: " +
+        response.status
       );
     }
 
-    return r.text();
+    return response.text();
   })
 
   .then(function(text) {
 
-    const rows = parseCsv(text);
-    let dest = '';
+    const rows =
+      parseCsv(text);
+
+    let destination = "";
 
     // E열(고유ID)을 검색
-    for (let r = 1; r < rows.length; r++) {
+    for (
+      let r = 1;
+      r < rows.length;
+      r++
+    ) {
 
       const rowId =
         rows[r][4]
-          ? String(rows[r][4]).trim()
-          : '';
+          ? String(
+              rows[r][4]
+            ).trim()
+          : "";
 
-      if (rowId && rowId === id) {
+      if (
+        rowId &&
+        rowId === id
+      ) {
 
-        // C열(실제 목적지 URL)
-        dest =
+        // C열 실제 목적지 URL
+        destination =
           rows[r][2]
-            ? String(rows[r][2]).trim()
-            : '';
+            ? String(
+                rows[r][2]
+              ).trim()
+            : "";
 
         break;
       }
     }
 
-    if (dest) {
+    if (destination) {
 
-      location.replace(dest);
+      location.replace(
+        destination
+      );
 
     } else {
 
       showError(
-        '목적지 URL이 아직 설정되지 않았습니다. (id=' +
-        id + ')'
+        "목적지 URL이 없습니다. (" +
+        sheetCode +
+        " / ID=" +
+        id +
+        ")"
       );
     }
 
   })
 
-  .catch(function(err) {
+  .catch(function(error) {
 
     showError(
-      '연결 중 오류: ' + err.message
+      "연결 오류: " +
+      error.message
     );
-
   });
 }
 
